@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { API_ENDPOINTS } from "../config";
+import IconButton from "@mui/material/IconButton";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 /* =========================
    INDICATOR MODEL
@@ -354,6 +356,9 @@ const FiltersPage = () => {
   const [exit, setExit] = useState(createGroup("OR", [])); // empty: show "Add condition" first
 
   const [companies, setCompanies] = useState([]);
+  const [backtestResults, setBacktestResults] = useState([]);
+  const [backtestLoading, setBacktestLoading] = useState(false);
+  const [backtestError, setBacktestError] = useState("");
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -464,9 +469,68 @@ const FiltersPage = () => {
     }
   };
 
+  const runBacktest = async () => {
+    if (backtestLoading) return;
+
+    const t = targetPct === "" ? null : parseFloat(targetPct);
+    const s = slPct === "" ? null : parseFloat(slPct);
+
+    if (t == null || Number.isNaN(t) || s == null || Number.isNaN(s)) {
+      setBacktestError(
+        "Enter valid Target % and SL % before running backtest.",
+      );
+      return;
+    }
+
+    if (!companies || companies.length === 0) {
+      setBacktestError("Run Scan first to generate entries for backtest.");
+      return;
+    }
+
+    setBacktestLoading(true);
+    setBacktestError("");
+    setBacktestResults([]);
+
+    try {
+      const res = await fetch(
+        `${API_ENDPOINTS.APPLY_FILTERS.replace("/filters/apply", "")}/backtest/run`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            timeframe,
+            targetPct: t,
+            slPct: s,
+            // backend will look up entry close if not provided
+            entries: companies
+              .map((c) => ({
+                Symbol: c.symbol,
+                Date: c.date ? String(c.date).split(" ")[0] : null,
+              }))
+              .filter((e) => e.Symbol && e.Date),
+          }),
+        },
+      );
+
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setBacktestResults(data.results || []);
+    } catch (err) {
+      setBacktestError(err.message || "Backtest failed");
+    } finally {
+      setBacktestLoading(false);
+    }
+  };
+
   /* -------- Rule Row -------- */
 
   const RuleRow = ({ rule, root, setter, path }) => {
+    const leftKey =
+      typeof rule.left === "object" && rule.left != null
+        ? rule.left.key
+        : rule.left;
+    const showDelete = Boolean(leftKey);
+
     return (
       <div style={styles.ruleRow} className="rule-row">
         <span style={styles.if}>If</span>
@@ -505,6 +569,8 @@ const FiltersPage = () => {
           <option value=">">{">"}</option>
           <option value="<">{"<"}</option>
           <option value="=">{"="}</option>
+          <option value=">=">{">="}</option>
+          <option value="<=">{"<="}</option>
         </select>
         <select
           style={{
@@ -561,6 +627,20 @@ const FiltersPage = () => {
               allowClearAndSelect
             />
           </div>
+        )}
+
+        {showDelete ? (
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => removeNode(setter, root, path)}
+            aria-label="Delete condition"
+            title="Delete condition"
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <div />
         )}
       </div>
     );
@@ -761,11 +841,18 @@ const FiltersPage = () => {
           >
             {loading ? "Scanning…" : "Scan"}
           </button>
-          <button style={styles.secondaryBtn}>Backtest</button>
+          <button
+            style={styles.secondaryBtn}
+            onClick={runBacktest}
+            disabled={backtestLoading}
+          >
+            {backtestLoading ? "Backtesting…" : "Backtest"}
+          </button>
           <button style={styles.ghostBtn}>Save strategy</button>
         </div>
 
         {error && <div style={styles.errorBanner}>{error}</div>}
+        {backtestError && <div style={styles.errorBanner}>{backtestError}</div>}
 
         {/* Results table */}
         <section style={styles.card} className="card">
@@ -810,6 +897,50 @@ const FiltersPage = () => {
             )}
           </div>
         </section>
+
+        {/* Backtest results */}
+        <section style={styles.card} className="card">
+          <h2 style={styles.cardTitle} className="card-title">
+            Backtest results{" "}
+            {backtestResults.length > 0 && `(${backtestResults.length})`}
+          </h2>
+          <div style={styles.tableWrap} className="table-wrap">
+            {backtestResults.length > 0 ? (
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Symbol</th>
+                    <th style={styles.th}>Entry</th>
+                    <th style={styles.th}>Exit</th>
+                    <th style={styles.th}>PnL %</th>
+                    <th style={styles.th}>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backtestResults.map((r, i) => (
+                    <tr key={i}>
+                      <td style={styles.td}>{r.symbol}</td>
+                      <td style={styles.td}>
+                        {r.entry_date} @ {r.entry_price}
+                      </td>
+                      <td style={styles.td}>
+                        {r.exit_date} @ {r.exit_price}
+                      </td>
+                      <td style={styles.td}>{r.pnl_pct}</td>
+                      <td style={styles.td}>{r.exit_reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={styles.emptyResults}>
+                {backtestLoading
+                  ? "Running backtest…"
+                  : "Run Backtest to see results."}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
       <style>{`
         .rule-row > * {
@@ -829,7 +960,7 @@ const FiltersPage = () => {
             grid-template-columns: 1fr !important;
           }
           .rule-row {
-            grid-template-columns: max-content minmax(0, 2fr) 60px minmax(0, 1fr) minmax(0, 2fr) !important;
+            grid-template-columns: max-content minmax(0, 2fr) 60px minmax(0, 1fr) minmax(0, 2fr) 28px !important;
             gap: 8px !important;
           }
           .rule-row select,
@@ -883,6 +1014,21 @@ const FiltersPage = () => {
         select::-ms-expand {
           display: none;
         }
+          /* Cursor pointer for dropdowns */
+        select {
+        cursor: pointer;
+        }
+
+        /* Cursor pointer for date inputs */
+        input[type="date"] {
+        cursor: pointer;
+        }
+
+        /* Optional: pointer for number inputs with steppers */
+        input[type="number"] {
+        cursor: pointer;
+        }
+
       `}</style>
     </div>
   );
@@ -1124,7 +1270,7 @@ const styles = {
   ruleRow: {
     display: "grid",
     gridTemplateColumns:
-      "max-content minmax(0, 2fr) 60px minmax(0, 1fr) minmax(0, 2fr)",
+      "max-content minmax(0, 2fr) 60px minmax(0, 1fr) minmax(0, 2fr) 28px",
     alignItems: "center",
     gap: 12,
     padding: "12px 14px",
@@ -1132,6 +1278,21 @@ const styles = {
     borderRadius: 8,
     marginBottom: 8,
     border: "1px solid #f1f5f9",
+  },
+
+  ruleDeleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    border: "1px solid #fecaca",
+    background: "#fff",
+    color: "#dc2626",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
+    fontSize: 14,
   },
 
   if: {
