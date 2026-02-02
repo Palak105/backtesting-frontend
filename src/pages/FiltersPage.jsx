@@ -85,6 +85,7 @@ const IndicatorSelector = ({
   allowClearAndSelect = false,
 }) => {
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(indicator);
   const anchorRef = useRef();
 
   const meta = indicators.find((i) => i.key === indicator.key);
@@ -100,53 +101,122 @@ const IndicatorSelector = ({
     onChange({ ...indicator, key: "" });
   };
 
-  const fieldWrapper = {
-    display: "inline-flex",
-    alignItems: "center",
-    border: "1px solid #e2e8f0",
-    borderRadius: 6,
-    background: "#fff",
-    overflow: "hidden",
+  const openPanel = () => {
+    // Work on a draft so user can change multiple fields then save once.
+    setDraft(indicator);
+    setOpen(true);
+  };
+
+  const cancelPanel = () => {
+    setDraft(indicator);
+    setOpen(false);
+  };
+
+  const savePanel = () => {
+    onChange(draft);
+    setOpen(false);
   };
 
   if (allowClearAndSelect && !hasSelection) {
     return (
-      <div style={fieldWrapper}>
-        <select
-          style={{ ...styles.indicatorSelect, border: "none", minWidth: 140 }}
-          value=""
-          onChange={(e) => {
-            const key = e.target.value;
-            if (key) handleSelectIndicator(key);
-          }}
-        >
-          <option value="">Select indicator</option>
-          {indicators.map((i) => (
-            <option key={i.key} value={i.key}>
-              {i.label || i.key}
-            </option>
-          ))}
-        </select>
-      </div>
+      <select
+        style={{
+          ...styles.input,
+          appearance: "none",
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 12px center",
+          paddingRight: "36px",
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+        value=""
+        onChange={(e) => {
+          const key = e.target.value;
+          if (key) handleSelectIndicator(key);
+        }}
+      >
+        <option value="">Select indicator</option>
+        {indicators.map((i) => (
+          <option key={i.key} value={i.key}>
+            {i.label || i.key}
+          </option>
+        ))}
+      </select>
     );
   }
 
   return (
     <>
-      <div style={fieldWrapper}>
+      <div
+        style={{
+          position: "relative",
+          display: "block",
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+        }}
+      >
         <button
           ref={anchorRef}
-          onClick={() => setOpen(true)}
-          style={{ ...styles.indicatorBtn, border: "none" }}
+          onClick={openPanel}
+          style={{
+            ...styles.input,
+            textAlign: "left",
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            // Keep dropdown icon at far right. Clear (✕) sits before it.
+            backgroundPosition: "right 12px center",
+            paddingRight: allowClearAndSelect ? "72px" : "36px",
+            overflow: "hidden",
+          }}
         >
-          {meta?.label || indicator.key}
-          <span style={{ opacity: 0.6, marginLeft: 4 }}>▾</span>
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flex: 1,
+            }}
+          >
+            {meta?.label || indicator.key}
+          </span>
         </button>
         {allowClearAndSelect && (
           <button
             type="button"
             onClick={handleClear}
-            style={styles.clearBtnInside}
+            style={{
+              position: "absolute",
+              // place ✕ left of the dropdown chevron
+              right: 40,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "transparent",
+              border: "none",
+              color: "#dc2626",
+              cursor: "pointer",
+              fontSize: 16,
+              padding: "4px 6px",
+              lineHeight: 1,
+              zIndex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "24px",
+              height: "24px",
+            }}
             title="Clear indicator"
             aria-label="Clear indicator"
           >
@@ -155,11 +225,7 @@ const IndicatorSelector = ({
         )}
       </div>
 
-      <FloatingPanel
-        anchorRef={anchorRef}
-        open={open}
-        onClose={() => setOpen(false)}
-      >
+      <FloatingPanel anchorRef={anchorRef} open={open} onClose={cancelPanel}>
         <div style={styles.panelTitle}>{meta?.label || indicator.key}</div>
         <div style={styles.field}>
           <label style={{ color: "#64748b", fontSize: 12, marginBottom: 4 }}>
@@ -167,8 +233,8 @@ const IndicatorSelector = ({
           </label>
           <select
             style={styles.panelInput}
-            value={indicator.source}
-            onChange={(e) => onChange({ ...indicator, source: e.target.value })}
+            value={draft.source}
+            onChange={(e) => setDraft({ ...draft, source: e.target.value })}
           >
             <option value="open">Open</option>
             <option value="high">High</option>
@@ -185,10 +251,8 @@ const IndicatorSelector = ({
             type="number"
             min={1}
             style={styles.panelInput}
-            value={indicator.period}
-            onChange={(e) =>
-              onChange({ ...indicator, period: +e.target.value })
-            }
+            value={draft.period}
+            onChange={(e) => setDraft({ ...draft, period: +e.target.value })}
           />
         </div>
         <div style={styles.field}>
@@ -199,11 +263,26 @@ const IndicatorSelector = ({
             type="number"
             min={0}
             style={styles.panelInput}
-            value={indicator.offset}
-            onChange={(e) =>
-              onChange({ ...indicator, offset: +e.target.value })
-            }
+            value={draft.offset}
+            onChange={(e) => setDraft({ ...draft, offset: +e.target.value })}
           />
+        </div>
+
+        <div style={styles.panelActions}>
+          <button
+            type="button"
+            style={styles.panelSecondaryBtn}
+            onClick={cancelPanel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            style={styles.panelPrimaryBtn}
+            onClick={savePanel}
+          >
+            Save
+          </button>
         </div>
       </FloatingPanel>
     </>
@@ -389,18 +468,30 @@ const FiltersPage = () => {
 
   const RuleRow = ({ rule, root, setter, path }) => {
     return (
-      <div style={styles.ruleRow}>
+      <div style={styles.ruleRow} className="rule-row">
         <span style={styles.if}>If</span>
-        <IndicatorSelector
-          indicator={rule.left}
-          indicators={indicators}
-          onChange={(v) =>
-            setter(updateNode(root, path, (r) => ({ ...r, left: v })))
-          }
-          allowClearAndSelect
-        />
+        <div style={{ minWidth: 0 }}>
+          <IndicatorSelector
+            indicator={rule.left}
+            indicators={indicators}
+            onChange={(v) =>
+              setter(updateNode(root, path, (r) => ({ ...r, left: v })))
+            }
+            allowClearAndSelect
+          />
+        </div>
         <select
-          style={styles.selectSmall}
+          style={{
+            ...styles.input,
+            appearance: "none",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 8px center",
+            paddingRight: "28px",
+            width: "60px",
+            minWidth: "60px",
+            maxWidth: "60px",
+          }}
           value={rule.operator}
           onChange={(e) =>
             setter(
@@ -415,37 +506,15 @@ const FiltersPage = () => {
           <option value="<">{"<"}</option>
           <option value="=">{"="}</option>
         </select>
-        {rule.rightType === "value" ? (
-          <input
-            type="number"
-            style={styles.inputSmall}
-            value={rule.rightValue}
-            onChange={(e) =>
-              setter(
-                updateNode(root, path, (r) => ({
-                  ...r,
-                  rightValue: e.target.value,
-                })),
-              )
-            }
-          />
-        ) : (
-          <IndicatorSelector
-            indicator={rule.rightIndicator}
-            indicators={indicators}
-            onChange={(v) =>
-              setter(
-                updateNode(root, path, (r) => ({
-                  ...r,
-                  rightIndicator: v,
-                })),
-              )
-            }
-            allowClearAndSelect
-          />
-        )}
         <select
-          style={styles.selectSmall}
+          style={{
+            ...styles.choiceInput,
+            appearance: "none",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 12px center",
+            paddingRight: "36px",
+          }}
           value={rule.rightType}
           onChange={(e) => {
             const newType = e.target.value;
@@ -462,6 +531,37 @@ const FiltersPage = () => {
           <option value="value">Value</option>
           <option value="indicator">Indicator</option>
         </select>
+        {rule.rightType === "value" ? (
+          <input
+            type="number"
+            style={styles.input}
+            value={rule.rightValue}
+            onChange={(e) =>
+              setter(
+                updateNode(root, path, (r) => ({
+                  ...r,
+                  rightValue: e.target.value,
+                })),
+              )
+            }
+          />
+        ) : (
+          <div style={{ minWidth: 0 }}>
+            <IndicatorSelector
+              indicator={rule.rightIndicator}
+              indicators={indicators}
+              onChange={(v) =>
+                setter(
+                  updateNode(root, path, (r) => ({
+                    ...r,
+                    rightIndicator: v,
+                  })),
+                )
+              }
+              allowClearAndSelect
+            />
+          </div>
+        )}
       </div>
     );
   };
@@ -510,18 +610,22 @@ const FiltersPage = () => {
   );
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="page">
       <div style={styles.container}>
         {/* Page title */}
-        <h1 style={styles.pageTitle}>Strategy</h1>
+        <h1 style={styles.pageTitle} className="page-title">
+          Strategy
+        </h1>
         <p style={styles.pageSubtitle}>
           Define entry and exit conditions for your scan or backtest.
         </p>
 
         {/* Filters card */}
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>Filters</h2>
-          <div style={styles.filtersGrid}>
+        <section style={styles.card} className="card">
+          <h2 style={styles.cardTitle} className="card-title">
+            Filters
+          </h2>
+          <div style={styles.filtersGrid} className="filters-grid">
             <div style={styles.formField}>
               <label style={styles.label}>Strategy name</label>
               <input
@@ -534,7 +638,14 @@ const FiltersPage = () => {
             <div style={styles.formField}>
               <label style={styles.label}>Timeframe</label>
               <select
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  appearance: "none",
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 12px center",
+                  paddingRight: "36px",
+                }}
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value)}
               >
@@ -545,7 +656,14 @@ const FiltersPage = () => {
             <div style={styles.formField}>
               <label style={styles.label}>Market cap</label>
               <select
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  appearance: "none",
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 12px center",
+                  paddingRight: "36px",
+                }}
                 value={marketCap}
                 onChange={(e) => setMarketCap(e.target.value)}
               >
@@ -577,8 +695,10 @@ const FiltersPage = () => {
         </section>
 
         {/* Entry conditions card */}
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>Entry conditions</h2>
+        <section style={styles.card} className="card">
+          <h2 style={styles.cardTitle} className="card-title">
+            Entry conditions
+          </h2>
           <p style={styles.cardDescription}>
             All of these must be true for a symbol to enter.
           </p>
@@ -586,13 +706,15 @@ const FiltersPage = () => {
         </section>
 
         {/* Exit conditions card */}
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>Exit conditions</h2>
+        <section style={styles.card} className="card">
+          <h2 style={styles.cardTitle} className="card-title">
+            Exit conditions
+          </h2>
           <p style={styles.cardDescription}>
             Any of these will trigger an exit. Optionally set target and
             stop-loss.
           </p>
-          <div style={styles.exitFieldsRow}>
+          <div style={styles.exitFieldsRow} className="exit-fields-row">
             <div style={styles.formField}>
               <label style={styles.label}>Target %</label>
               <input
@@ -646,11 +768,15 @@ const FiltersPage = () => {
         {error && <div style={styles.errorBanner}>{error}</div>}
 
         {/* Results table */}
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>
+        <section style={styles.card} className="card">
+          <h2 style={styles.cardTitle} className="card-title">
             Results {companies.length > 0 && `(${companies.length})`}
           </h2>
-          <div style={styles.tableWrap} onScroll={onResultsScroll}>
+          <div
+            style={styles.tableWrap}
+            onScroll={onResultsScroll}
+            className="table-wrap"
+          >
             {companies.length > 0 ? (
               <table style={styles.table}>
                 <thead>
@@ -685,6 +811,79 @@ const FiltersPage = () => {
           </div>
         </section>
       </div>
+      <style>{`
+        .rule-row > * {
+          min-width: 0;
+        }
+        .rule-row button,
+        .rule-row select,
+        .rule-row input {
+          min-width: 0;
+        }
+
+        @media (max-width: 768px) {
+          .filters-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .exit-fields-row {
+            grid-template-columns: 1fr !important;
+          }
+          .rule-row {
+            grid-template-columns: max-content minmax(0, 2fr) 60px minmax(0, 1fr) minmax(0, 2fr) !important;
+            gap: 8px !important;
+          }
+          .rule-row select,
+          .rule-row input,
+          .rule-row > div {
+            min-width: 0 !important;
+            width: 100% !important;
+          }
+          .page {
+            padding: 12px !important;
+          }
+          .card {
+            padding: 12px !important;
+          }
+          .page-title {
+            font-size: 24px !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .rule-row {
+            grid-template-columns: 1fr !important;
+            gap: 8px !important;
+          }
+          .rule-row > span {
+            display: none;
+          }
+        }
+        @media (max-width: 480px) {
+          .page-title {
+            font-size: 20px !important;
+          }
+          .card-title {
+            font-size: 14px !important;
+          }
+          .input, select, input {
+            font-size: 16px !important;
+          }
+          .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          .table-wrap table {
+            min-width: 600px;
+          }
+        }
+        select {
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+        }
+        select::-ms-expand {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 };
@@ -698,7 +897,7 @@ const styles = {
     background: "#f8fafc",
     color: "#0f172a",
     minHeight: "100vh",
-    padding: "32px 24px",
+    padding: "16px",
     fontFamily:
       "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
@@ -706,6 +905,7 @@ const styles = {
   container: {
     maxWidth: 720,
     margin: "0 auto",
+    width: "100%",
   },
 
   pageTitle: {
@@ -727,7 +927,7 @@ const styles = {
     background: "#fff",
     borderRadius: 12,
     border: "1px solid #e2e8f0",
-    padding: 24,
+    padding: "16px",
     marginBottom: 24,
     boxShadow: "0 1px 3px 0 rgba(0,0,0,0.05)",
   },
@@ -748,7 +948,7 @@ const styles = {
 
   filtersGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
     gap: 20,
   },
 
@@ -772,6 +972,20 @@ const styles = {
     background: "#fff",
     color: "#0f172a",
     outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  choiceInput: {
+    padding: "10px 12px",
+    fontSize: 14,
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#0f172a",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
+    minWidth: 0,
   },
 
   inputSmall: {
@@ -786,10 +1000,10 @@ const styles = {
   },
 
   selectSmall: {
-    padding: "8px 10px",
+    padding: "10px 12px",
     fontSize: 14,
     border: "1px solid #e2e8f0",
-    borderRadius: 6,
+    borderRadius: 8,
     background: "#fff",
     color: "#0f172a",
     outline: "none",
@@ -847,7 +1061,7 @@ const styles = {
 
   exitFieldsRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
     gap: 20,
     marginBottom: 16,
   },
@@ -908,7 +1122,9 @@ const styles = {
   },
 
   ruleRow: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns:
+      "max-content minmax(0, 2fr) 60px minmax(0, 1fr) minmax(0, 2fr)",
     alignItems: "center",
     gap: 12,
     padding: "12px 14px",
@@ -923,6 +1139,7 @@ const styles = {
     fontWeight: 600,
     fontSize: 13,
     minWidth: 24,
+    whiteSpace: "nowrap",
   },
 
   indicatorBtn: {
@@ -931,18 +1148,18 @@ const styles = {
     color: "#0f172a",
     cursor: "pointer",
     fontSize: 14,
-    padding: "8px 12px",
-    borderRadius: 6,
+    padding: "10px 12px",
+    borderRadius: 8,
     fontWeight: 500,
   },
 
   indicatorSelect: {
-    padding: "8px 12px",
+    padding: "10px 12px",
     fontSize: 14,
     border: "1px solid #e2e8f0",
-    borderRadius: 6,
+    borderRadius: 8,
     background: "#fff",
-    color: "#64748b",
+    color: "#0f172a",
     minWidth: 140,
     cursor: "pointer",
     outline: "none",
@@ -984,6 +1201,7 @@ const styles = {
 
   actionsCard: {
     display: "flex",
+    flexWrap: "wrap",
     gap: 12,
     marginTop: 8,
     paddingTop: 8,
@@ -1043,6 +1261,35 @@ const styles = {
     background: "#fff",
     color: "#0f172a",
     outline: "none",
+  },
+
+  panelActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 8,
+  },
+
+  panelPrimaryBtn: {
+    background: "#0f172a",
+    color: "#fff",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+
+  panelSecondaryBtn: {
+    background: "#fff",
+    color: "#0f172a",
+    border: "1px solid #e2e8f0",
+    padding: "8px 12px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };
 
