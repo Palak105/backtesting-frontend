@@ -879,7 +879,7 @@ const FiltersPage = () => {
                     <th style={styles.th}>Symbol</th>
                     <th style={styles.th}>Market cap</th>
                     <th style={styles.th}>Industry</th>
-                    <th style={styles.th}>Date(uniqueDates)</th>
+                    <th style={styles.th}>Date`(${uniqueDates})`</th>
                   </tr>
                 </thead>
                 <tbody>
