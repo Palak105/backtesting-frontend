@@ -89,7 +89,6 @@ const IndicatorSelector = ({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(indicator);
   const anchorRef = useRef();
-
   const meta = indicators.find((i) => i.key === indicator.key);
   const hasSelection =
     !allowClearAndSelect || (indicator.key && indicator.key.length > 0);
@@ -346,6 +345,7 @@ const FiltersPage = () => {
   const [marketCap, setMarketCap] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [totalCount, setTotalCount] = useState(0);
 
   const [targetPct, setTargetPct] = useState("");
   const [slPct, setSlPct] = useState("");
@@ -424,6 +424,7 @@ const FiltersPage = () => {
       setCompanies([]);
       setOffset(0);
       setHasMore(true);
+      setTotalCount(0);
     }
     setLoading(true);
     setError("");
@@ -449,9 +450,15 @@ const FiltersPage = () => {
       if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
+      console.log("data", data);
       const rows = data.companies || [];
 
+      if (reset) {
+        setTotalCount(data.totalCount || 0);
+      }
+
       setCompanies((prev) => (reset ? rows : [...prev, ...rows]));
+
       setHasMore(rows.length >= LIMIT);
       if (rows.length >= LIMIT) setOffset((o) => o + LIMIT);
       setError("");
@@ -857,7 +864,7 @@ const FiltersPage = () => {
         {/* Results table */}
         <section style={styles.card} className="card">
           <h2 style={styles.cardTitle} className="card-title">
-            Results {companies.length > 0 && `(${companies.length})`}
+            Results {totalCount > 0 && `(${companies.length} / ${totalCount})`}
           </h2>
           <div
             style={styles.tableWrap}
