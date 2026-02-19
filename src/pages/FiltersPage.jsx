@@ -346,7 +346,7 @@ const FiltersPage = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [totalCount, setTotalCount] = useState(0);
-
+  const [uniqueDates, setUniqueDates] = useState(0);
   const [targetPct, setTargetPct] = useState("");
   const [slPct, setSlPct] = useState("");
 
@@ -455,6 +455,7 @@ const FiltersPage = () => {
 
       if (reset) {
         setTotalCount(data.totalCount || 0);
+        setUniqueDates(data.uniqueDates || 0);
       }
 
       setCompanies((prev) => (reset ? rows : [...prev, ...rows]));
@@ -878,7 +879,7 @@ const FiltersPage = () => {
                     <th style={styles.th}>Symbol</th>
                     <th style={styles.th}>Market cap</th>
                     <th style={styles.th}>Industry</th>
-                    <th style={styles.th}>Date</th>
+                    <th style={styles.th}>Date(uniqueDates)</th>
                   </tr>
                 </thead>
                 <tbody>
