@@ -87,6 +87,8 @@ const IndicatorSelector = ({
   allowClearAndSelect = false,
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
   const [draft, setDraft] = useState(indicator);
   const anchorRef = useRef();
   const meta = indicators.find((i) => i.key === indicator.key);
@@ -118,36 +120,112 @@ const IndicatorSelector = ({
     setOpen(false);
   };
 
+  const dropdownRef = useRef();
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   if (allowClearAndSelect && !hasSelection) {
+    const filtered = indicators.filter((i) =>
+      (i.label || i.key).toLowerCase().includes(search.toLowerCase()),
+    );
+
     return (
-      <select
-        style={{
-          ...styles.input,
-          appearance: "none",
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "right 12px center",
-          paddingRight: "36px",
-          width: "100%",
-          maxWidth: "100%",
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-        value=""
-        onChange={(e) => {
-          const key = e.target.value;
-          if (key) handleSelectIndicator(key);
-        }}
-      >
-        <option value="">Select indicator</option>
-        {indicators.map((i) => (
-          <option key={i.key} value={i.key}>
-            {i.label || i.key}
-          </option>
-        ))}
-      </select>
+      <div style={{ position: "relative", width: "100%" }}>
+        {/* Fake Select (same look as before) */}
+        <button
+          ref={anchorRef}
+          onClick={() => setOpen((o) => !o)}
+          style={{
+            ...styles.input,
+            textAlign: "left",
+            width: "100%",
+            cursor: "pointer",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 12px center",
+            paddingRight: "36px",
+          }}
+        >
+          Select indicator
+        </button>
+
+        {open && (
+          <div
+            ref={dropdownRef}
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              marginTop: 4,
+              zIndex: 1000,
+            }}
+          >
+            {/* Search input */}
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                ...styles.input,
+                border: "none",
+                borderBottom: "1px solid #e5e7eb",
+                borderRadius: 0,
+              }}
+            />
+
+            {/* Indicator list */}
+            <div style={{ maxHeight: 200, overflowY: "auto" }}>
+              {filtered.map((i) => (
+                <div
+                  key={i.key}
+                  onClick={() => {
+                    handleSelectIndicator(i.key);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#f1f5f9")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  {i.label || i.key}
+                </div>
+              ))}
+
+              {filtered.length === 0 && (
+                <div style={{ padding: 8, color: "#64748b" }}>
+                  No indicators found
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -879,7 +957,7 @@ const FiltersPage = () => {
                     <th style={styles.th}>Symbol</th>
                     <th style={styles.th}>Market cap</th>
                     <th style={styles.th}>Industry</th>
-                    <th style={styles.th}>Date`(${uniqueDates})`</th>
+                    <th style={styles.th}>Date({uniqueDates})</th>
                   </tr>
                 </thead>
                 <tbody>
